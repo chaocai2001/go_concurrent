@@ -7,10 +7,8 @@ Created at 2018-1-26
 package go_concurrent
 
 import (
-	"errors"
 	"fmt"
 	"sync"
-	"time"
 )
 
 type Runnable interface {
@@ -52,10 +50,8 @@ func ExampleUtilAllTaskFinished() (int, error) {
 
 	tasks := []Runnable{&t1, &t2, &t3}
 
-	err = UtilAllTaskFinished(tasks)
-	if err != nil {
-		return 0, err
-	}
+	UtilAllTaskFinished(tasks)
+
 	ret := 0
 	for _, task := range tasks {
 		ret += (task.(*enumTask)).result
