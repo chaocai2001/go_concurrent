@@ -7,12 +7,19 @@ Created at 2018-1-26
 package go_concurrent
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"sync"
+	"time"
 )
 
 type Runnable interface {
 	Run()
+}
+
+type RunnableAndCallable interface {
+	RunInTimePeriod(ctx context.Context)
 }
 
 //The current process will be blocked util all the tasks get done
@@ -28,33 +35,117 @@ func UtilAllTaskFinished(runners []Runnable) {
 	wg.Wait()
 }
 
+var TimeOutError = errors.New("Timeout occured!")
+
+func UtilAllTaskFinishedWithTimeout(runners []RunnableAndCallable, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+
+	var endChan chan struct{} = make(chan struct{})
+	var wg sync.WaitGroup
+	defer close(endChan)
+	for _, runner := range runners {
+		wg.Add(1)
+		go func(r RunnableAndCallable, ctx context.Context) {
+			r.RunInTimePeriod(ctx)
+			wg.Done()
+		}(runner, ctx)
+	}
+	go func(eChan chan struct{}) {
+		wg.Wait()
+		eChan <- struct{}{}
+	}(endChan)
+
+	select {
+	case <-endChan:
+		return nil
+	case <-time.After(timeout):
+		cancel()
+		fmt.Println("************************")
+		return TimeOutError
+	}
+
+}
+
 //The following is the example of waiting for all tasks done
 type enumTask struct {
 	startFrom int
 	result    int
 	err       error
+	sleepTime time.Duration
 }
 
 func (t *enumTask) Run() {
-	fmt.Printf("Start %d ", t.startFrom)
+
 	for i := t.startFrom; i < t.startFrom+10; i++ {
 		t.result += i
 	}
-	fmt.Println(t.result)
+	fmt.Printf("Start from %d, ret = %d \n ", t.startFrom, t.result)
 }
 
+func (t *enumTask) RunInTimePeriod(ctx context.Context) {
+
+	for i := t.startFrom; i < t.startFrom+10; i++ {
+		t.result += i
+		select {
+		case <-ctx.Done():
+			fmt.Println("Timeout occured!")
+			return
+		default:
+			time.Sleep(t.sleepTime)
+		}
+	}
+	fmt.Printf("Start from %d, ret = %d \n ", t.startFrom, t.result)
+}
+
+//All the example is about caculating the sum : 1+2+3+..+30
+//Three goroutings are used to calcuate the sum:
+//1+2+...+10
+//11+12+...+20
+//21+22+...+30
 func ExampleUtilAllTaskFinished() (int, error) {
-	t1 := enumTask{1, 0, nil}
-	t2 := enumTask{11, 0, nil}
-	t3 := enumTask{21, 0, nil}
+	t1 := enumTask{1, 0, nil, 0}
+	t2 := enumTask{11, 0, nil, 0}
+	t3 := enumTask{21, 0, nil, 0}
 
 	tasks := []Runnable{&t1, &t2, &t3}
 
-	UtilAllTaskFinished(tasks)
+	UtilAllTaskFinished(tasks) //will be blocked until all tasks get done
 
 	ret := 0
 	for _, task := range tasks {
 		ret += (task.(*enumTask)).result
 	}
 	return ret, nil
+}
+
+func ExampleUtilAllTaskFinishedWithTimeout() (int, error) {
+	t1 := enumTask{1, 0, nil, time.Millisecond * 1}
+	t2 := enumTask{11, 0, nil, time.Millisecond * 1}
+	t3 := enumTask{21, 0, nil, time.Millisecond * 1}
+
+	tasks := []RunnableAndCallable{&t1, &t2, &t3}
+
+	err := UtilAllTaskFinishedWithTimeout(tasks, time.Millisecond*50) //will be blocked until all tasks get done
+
+	ret := 0
+	for _, task := range tasks {
+		ret += (task.(*enumTask)).result
+	}
+	return ret, err
+}
+
+func ExampleUtilAllTaskFinishedWithTimeout_TimeoutOccurred() (int, error) {
+	t1 := enumTask{1, 0, nil, time.Millisecond * 4}
+	t2 := enumTask{11, 0, nil, time.Millisecond * 4}
+	t3 := enumTask{21, 0, nil, time.Millisecond * 4}
+
+	tasks := []RunnableAndCallable{&t1, &t2, &t3}
+
+	err := UtilAllTaskFinishedWithTimeout(tasks, time.Millisecond*2) //will be blocked until all tasks get done
+
+	ret := 0
+	for _, task := range tasks {
+		ret += (task.(*enumTask)).result
+	}
+	return ret, err
 }
