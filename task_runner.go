@@ -87,7 +87,7 @@ func (t *enumTask) RunInTimePeriod(ctx context.Context) {
 	for i := t.startFrom; i < t.startFrom+10; i++ {
 		t.result += i
 		select {
-		case <-ctx.Done():
+		case <-ctx.Done(): //ready for cancel
 			fmt.Println("Timeout occured!")
 			return
 		default:
@@ -103,16 +103,16 @@ func (t *enumTask) RunInTimePeriod(ctx context.Context) {
 //11+12+...+20
 //21+22+...+30
 func ExampleUtilAllTaskFinished() (int, error) {
-	t1 := enumTask{1, 0, nil, 0}
-	t2 := enumTask{11, 0, nil, 0}
-	t3 := enumTask{21, 0, nil, 0}
+	t1 := enumTask{1, 0, nil, 0}  //1+2+3+...+10
+	t2 := enumTask{11, 0, nil, 0} //11+12+13...+20
+	t3 := enumTask{21, 0, nil, 0} //21+22+23+...+30
 
 	tasks := []Runnable{&t1, &t2, &t3}
 
 	UtilAllTaskFinished(tasks) //will be blocked until all tasks get done
 
 	ret := 0
-	for _, task := range tasks {
+	for _, task := range tasks { //sum the results from the goroutings
 		ret += (task.(*enumTask)).result
 	}
 	return ret, nil
