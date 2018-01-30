@@ -116,6 +116,7 @@ func ExampleUtilAllTaskFinished() (int, error) {
 		ret += (task.(*enumTask)).result
 	}
 	return ret, nil
+	//Output 465, nil
 }
 
 func ExampleUtilAllTaskFinishedWithTimeout() (int, error) {
@@ -125,13 +126,14 @@ func ExampleUtilAllTaskFinishedWithTimeout() (int, error) {
 
 	tasks := []RunnableAndCallable{&t1, &t2, &t3}
 
-	err := UtilAllTaskFinishedWithTimeout(tasks, time.Millisecond*50) //will be blocked until all tasks get done
+	err := UtilAllTaskFinishedWithTimeout(tasks, time.Millisecond*50)
 
 	ret := 0
 	for _, task := range tasks {
 		ret += (task.(*enumTask)).result
 	}
 	return ret, err
+	//Output 465,nil (All the tasks can be finished with the expected time spent)
 }
 
 func ExampleUtilAllTaskFinishedWithTimeout_TimeoutOccurred() (int, error) {
@@ -141,11 +143,12 @@ func ExampleUtilAllTaskFinishedWithTimeout_TimeoutOccurred() (int, error) {
 
 	tasks := []RunnableAndCallable{&t1, &t2, &t3}
 
-	err := UtilAllTaskFinishedWithTimeout(tasks, time.Millisecond*2) //will be blocked until all tasks get done
+	err := UtilAllTaskFinishedWithTimeout(tasks, time.Millisecond*2)
 
 	ret := 0
 	for _, task := range tasks {
 		ret += (task.(*enumTask)).result
 	}
 	return ret, err
+	//Output ?,TimeOutError (The tasks can not be finished in the expected time duration)
 }
