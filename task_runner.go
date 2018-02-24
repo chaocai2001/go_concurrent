@@ -14,12 +14,16 @@ import (
 	"time"
 )
 
+type Callable interface {
+	Call() interface{}
+}
+
 type Runnable interface {
 	Run()
 }
 
-type RunnableAndCallable interface {
-	RunInTimePeriod(ctx context.Context)
+type RunnableAndCancellable interface {
+	RunWithContext(ctx context.Context)
 }
 
 //The current process will be blocked util all the tasks get done
@@ -37,22 +41,21 @@ func UtilAllTaskFinished(runners []Runnable) {
 
 var TimeOutError = errors.New("Timeout occured!")
 
-func UtilAllTaskFinishedWithTimeout(runners []RunnableAndCallable, timeout time.Duration) error {
+func UtilAllTaskFinishedWithTimeout(runners []RunnableAndCancellable, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-
 	var endChan chan struct{} = make(chan struct{})
 	var wg sync.WaitGroup
-	defer close(endChan)
+	//defer close(endChan) : Can't put the statement here, otherwise "panic for sending on closed chan" would occur
 	for _, runner := range runners {
 		wg.Add(1)
-		go func(r RunnableAndCallable, ctx context.Context) {
-			r.RunInTimePeriod(ctx)
+		go func(r RunnableAndCancellable, ctx context.Context) {
+			r.RunWithContext(ctx)
 			wg.Done()
 		}(runner, ctx)
 	}
 	go func(eChan chan struct{}) {
 		wg.Wait()
-		eChan <- struct{}{}
+		endChan <- struct{}{}
 	}(endChan)
 
 	select {
@@ -60,10 +63,26 @@ func UtilAllTaskFinishedWithTimeout(runners []RunnableAndCallable, timeout time.
 		return nil
 	case <-time.After(timeout):
 		cancel()
-		fmt.Println("************************")
 		return TimeOutError
 	}
 
+}
+
+func UntilAnyoneResponse(callables []Callable) interface{} {
+
+	l := len(callables)
+	ch := make(chan interface{}, l)
+	for _, callable := range callables {
+		go func(c Callable) {
+			ch <- c.Call()
+		}(callable)
+	}
+	var ret interface{}
+	for i := 0; i < l; i++ {
+		ret = <-ch
+		return ret
+	}
+	return ret
 }
 
 //The following is the example of waiting for all tasks done
@@ -82,7 +101,7 @@ func (t *enumTask) Run() {
 	fmt.Printf("Start from %d, ret = %d \n ", t.startFrom, t.result)
 }
 
-func (t *enumTask) RunInTimePeriod(ctx context.Context) {
+func (t *enumTask) RunWithContext(ctx context.Context) {
 
 	for i := t.startFrom; i < t.startFrom+10; i++ {
 		t.result += i
@@ -124,7 +143,7 @@ func ExampleUtilAllTaskFinishedWithTimeout() (int, error) {
 	t2 := enumTask{11, 0, nil, time.Millisecond * 1}
 	t3 := enumTask{21, 0, nil, time.Millisecond * 1}
 
-	tasks := []RunnableAndCallable{&t1, &t2, &t3}
+	tasks := []RunnableAndCancellable{&t1, &t2, &t3}
 
 	err := UtilAllTaskFinishedWithTimeout(tasks, time.Millisecond*50)
 
@@ -141,7 +160,7 @@ func ExampleUtilAllTaskFinishedWithTimeout_TimeoutOccurred() (int, error) {
 	t2 := enumTask{11, 0, nil, time.Millisecond * 4}
 	t3 := enumTask{21, 0, nil, time.Millisecond * 4}
 
-	tasks := []RunnableAndCallable{&t1, &t2, &t3}
+	tasks := []RunnableAndCancellable{&t1, &t2, &t3}
 
 	err := UtilAllTaskFinishedWithTimeout(tasks, time.Millisecond*2)
 
@@ -151,4 +170,24 @@ func ExampleUtilAllTaskFinishedWithTimeout_TimeoutOccurred() (int, error) {
 	}
 	return ret, err
 	//Output ?,TimeOutError (The tasks can not be finished in the expected time duration)
+}
+
+//The following example is for only waiting the first response
+type numberCreationTask struct {
+	sleepTime time.Duration
+}
+
+func (t *numberCreationTask) Call() interface{} {
+	time.Sleep(t.sleepTime)
+	return t.sleepTime
+}
+
+func ExampleUtilAnyoneResponse() interface{} {
+	callables := make([]Callable, 3)
+	for i := 1; i <= 3; i++ {
+		t := numberCreationTask{time.Second * time.Duration(i)}
+		callables[i-1] = &t
+	}
+	return UntilAnyoneResponse(callables)
+	//Ouput 1s
 }
