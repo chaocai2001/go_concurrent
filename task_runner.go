@@ -93,16 +93,16 @@ type enumTask struct {
 	sleepTime time.Duration
 }
 
+//The task is required to implement Runnable interface
 func (t *enumTask) Run() {
-
 	for i := t.startFrom; i < t.startFrom+10; i++ {
 		t.result += i
 	}
 	fmt.Printf("Start from %d, ret = %d \n ", t.startFrom, t.result)
 }
 
+//The task is required to implement RunnableAndCancellable interface
 func (t *enumTask) RunWithContext(ctx context.Context) {
-
 	for i := t.startFrom; i < t.startFrom+10; i++ {
 		t.result += i
 		select {
@@ -125,11 +125,8 @@ func ExampleUtilAllTaskFinished() (int, error) {
 	t1 := enumTask{1, 0, nil, 0}  //1+2+3+...+10
 	t2 := enumTask{11, 0, nil, 0} //11+12+13...+20
 	t3 := enumTask{21, 0, nil, 0} //21+22+23+...+30
-
 	tasks := []Runnable{&t1, &t2, &t3}
-
 	UtilAllTaskFinished(tasks) //will be blocked until all tasks get done
-
 	ret := 0
 	for _, task := range tasks { //sum the results from the goroutings
 		ret += (task.(*enumTask)).result
@@ -142,11 +139,8 @@ func ExampleUtilAllTaskFinishedWithTimeout() (int, error) {
 	t1 := enumTask{1, 0, nil, time.Millisecond * 1}
 	t2 := enumTask{11, 0, nil, time.Millisecond * 1}
 	t3 := enumTask{21, 0, nil, time.Millisecond * 1}
-
 	tasks := []RunnableAndCancellable{&t1, &t2, &t3}
-
 	err := UtilAllTaskFinishedWithTimeout(tasks, time.Millisecond*50)
-
 	ret := 0
 	for _, task := range tasks {
 		ret += (task.(*enumTask)).result
@@ -159,11 +153,8 @@ func ExampleUtilAllTaskFinishedWithTimeout_TimeoutOccurred() (int, error) {
 	t1 := enumTask{1, 0, nil, time.Millisecond * 4}
 	t2 := enumTask{11, 0, nil, time.Millisecond * 4}
 	t3 := enumTask{21, 0, nil, time.Millisecond * 4}
-
 	tasks := []RunnableAndCancellable{&t1, &t2, &t3}
-
 	err := UtilAllTaskFinishedWithTimeout(tasks, time.Millisecond*2)
-
 	ret := 0
 	for _, task := range tasks {
 		ret += (task.(*enumTask)).result
@@ -177,6 +168,7 @@ type numberCreationTask struct {
 	sleepTime time.Duration
 }
 
+//The task is required to implement Callable interface
 func (t *numberCreationTask) Call() interface{} {
 	time.Sleep(t.sleepTime)
 	return t.sleepTime
