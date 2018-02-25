@@ -52,6 +52,7 @@ func TestExampleUtilAllTaskFinishedWithTimeout_TimeoutOccurred(t *testing.T) {
 }
 
 func TestExampleUtilAnyoneResponse(t *testing.T) {
+
 	ret := ExampleUtilAnyoneResponse()
 	d1, ok := ret.(time.Duration)
 	if !ok {
@@ -61,4 +62,5 @@ func TestExampleUtilAnyoneResponse(t *testing.T) {
 		t.Errorf("Expected the return value 1s")
 	}
 	t.Log(ret)
+
 }

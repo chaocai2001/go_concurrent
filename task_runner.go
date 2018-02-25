@@ -43,7 +43,7 @@ var TimeOutError = errors.New("Timeout occured!")
 
 func UtilAllTaskFinishedWithTimeout(runners []RunnableAndCancellable, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	var endChan chan struct{} = make(chan struct{})
+	var endChan chan struct{} = make(chan struct{}, 1)
 	var wg sync.WaitGroup
 	//defer close(endChan) : Can't put the statement here, otherwise "panic for sending on closed chan" would occur
 	for _, runner := range runners {
@@ -69,20 +69,13 @@ func UtilAllTaskFinishedWithTimeout(runners []RunnableAndCancellable, timeout ti
 }
 
 func UntilAnyoneResponse(callables []Callable) interface{} {
-
-	l := len(callables)
-	ch := make(chan interface{}, l)
+	ch := make(chan interface{}, len(callables))
 	for _, callable := range callables {
 		go func(c Callable) {
 			ch <- c.Call()
 		}(callable)
 	}
-	var ret interface{}
-	for i := 0; i < l; i++ {
-		ret = <-ch
-		return ret
-	}
-	return ret
+	return <-ch
 }
 
 //The following is the example of waiting for all tasks done
@@ -107,7 +100,6 @@ func (t *enumTask) RunWithContext(ctx context.Context) {
 		t.result += i
 		select {
 		case <-ctx.Done(): //ready for cancel
-			fmt.Println("Timeout occured!")
 			return
 		default:
 			time.Sleep(t.sleepTime)
