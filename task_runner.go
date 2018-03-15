@@ -55,7 +55,7 @@ func UtilAllTaskFinishedWithTimeout(runners []RunnableAndCancellable, timeout ti
 	}
 	go func(eChan chan struct{}) {
 		wg.Wait()
-		endChan <- struct{}{}
+		eChan <- struct{}{}
 	}(endChan)
 
 	select {
